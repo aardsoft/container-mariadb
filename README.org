@@ -1,0 +1,5 @@
+* container-mariadb
+
+Leap 16 based MariaDB container image, published as =ghcr.io/aardsoft/mariadb:latest= (build via the shared =aardsoft/ansible-data-utilities= =build-role-container= workflow).
+
+The entrypoint =/usr/local/bin/start-mariadb= runs =mariadbd= in the foreground. On a fresh data directory the datadir is initialized with =mariadb-install-db=. If a SQL script is mounted at =/run/bootstrap/bootstrap.sql= it is executed over the local socket after the server is ready (root is authenticated via the unix_socket plugin from inside the container). The bootstrap script is expected to be idempotent, as it runs on every container start — this is how the =db-mariadb= ansible role provisions the root password, databases, and users.

@@ -1,0 +1,13 @@
+name: Build role specific container
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: aardsoft/ansible-data-utilities/.github/workflows/build-role-container.yml@master

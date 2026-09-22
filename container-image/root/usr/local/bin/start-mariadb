@@ -1,0 +1,62 @@
+#!/bin/sh
+# MariaDB container startup script.
+#
+# Runs mariadbd in the foreground. On a fresh data directory the datadir is
+# initialized first. If a bootstrap SQL script is mounted at
+# /run/bootstrap/bootstrap.sql it is executed over the local socket after the
+# server is up (root is authenticated via the unix_socket plugin, so no
+# password is needed from inside the container). The script is expected to be
+# idempotent, as it runs on every container start.
+#
+# Environment overrides:
+#   MARIADB_DATADIR  -- data directory (default: /var/lib/mysql)
+#   MARIADB_SOCKET   -- unix socket path (default: /run/mysqld/mysqld.sock)
+#   MARIADB_BIND     -- bind address (default: 0.0.0.0)
+
+set -e
+
+DATADIR="${MARIADB_DATADIR:-/var/lib/mysql}"
+SOCKET="${MARIADB_SOCKET:-/run/mysqld/mysqld.sock}"
+BIND="${MARIADB_BIND:-0.0.0.0}"
+
+mkdir -p "$(dirname "$SOCKET")"
+chown mysql:mysql "$(dirname "$SOCKET")"
+
+if [ ! -d "$DATADIR/mysql" ]; then
+    echo "Fresh data directory, running mariadb-install-db"
+    chown mysql:mysql "$DATADIR"
+    mariadb-install-db --user=mysql --datadir="$DATADIR"
+else
+    # Ensure the mounted volume stays usable if the underlying UID/GID drifted
+    chown mysql:mysql "$DATADIR" 2>/dev/null || true
+fi
+
+echo "Starting mariadbd"
+mariadbd --user=mysql --datadir="$DATADIR" --socket="$SOCKET" --bind-address="$BIND" &
+MARIADB_PID=$!
+
+# wait for the server to accept connections
+i=0
+while ! mariadb-admin --socket="$SOCKET" --user=root ping >/dev/null 2>&1; do
+    i=$((i + 1))
+    if [ "$i" -gt 120 ]; then
+        echo "ERROR: mariadbd did not become ready" >&2
+        exit 1
+    fi
+    if ! kill -0 "$MARIADB_PID" 2>/dev/null; then
+        echo "ERROR: mariadbd exited during startup" >&2
+        exit 1
+    fi
+    sleep 1
+done
+
+if [ -f /run/bootstrap/bootstrap.sql ]; then
+    echo "Running bootstrap SQL"
+    mariadb --socket="$SOCKET" --user=root < /run/bootstrap/bootstrap.sql || {
+        echo "ERROR: bootstrap SQL failed" >&2
+        exit 1
+    }
+fi
+
+echo "MariaDB ready (socket $SOCKET, bind $BIND)"
+wait "$MARIADB_PID"
