@@ -56,7 +56,7 @@ if [ -f /run/bootstrap/bootstrap.sql ]; then
         echo "ERROR: bootstrap SQL failed" >&2
         exit 1
     }
-    mariadb-tzinfo-to-sql /usr/share/zoneinfo/ | mariadb --socket="$SOCKET" --user=root || {
+    mariadb-tzinfo-to-sql /usr/share/zoneinfo/ | mariadb --socket="$SOCKET" --user=root mysql || {
         echo "ERROR: bootstrap of timezone info failed" >&2
         exit 1
     }
