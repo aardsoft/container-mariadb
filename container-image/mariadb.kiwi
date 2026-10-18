@@ -22,5 +22,6 @@
     <packages type="image">
       <package name="mariadb"/>
       <package name="mariadb-client"/>
+      <package name="mariadb-tools"/>
     </packages>
 </image>
